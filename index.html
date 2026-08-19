@@ -102,7 +102,7 @@
   .legend-item .beans svg{ width:13px; height:15px; }
   .legend-item .beans{ margin-bottom:0; }
 
-  .notes-row{ display:flex; gap:18px; flex-wrap:wrap; margin-bottom:22px; }
+  .notes-row{ display:flex; gap:18px; flex-wrap:wrap; margin-bottom:22px; justify-content:center; }
   .notes-row .legend-card{ margin-bottom:0; }
   .fave-card{
     background: #F6E2C8; border:1.5px solid var(--line); border-radius:4px;
@@ -176,12 +176,12 @@
   }
   #worldMap{ width:100%; height:100%; background:var(--cream); }
   #worldMap .leaflet-tile-pane{
-    filter: sepia(0.35) saturate(1.4) hue-rotate(-8deg) brightness(1.06) contrast(0.94);
+    filter: sepia(0.55) saturate(1.15) hue-rotate(-15deg) brightness(0.88) contrast(1.05);
   }
   #worldMap .leaflet-control-zoom a{
     background:var(--paper); color:var(--espresso); border-color:var(--line) !important;
   }
-  .cocoa-pin{ width:30px; height:36px; }
+  .cocoa-pin{ width:32px; height:32px; }
   .cocoa-pin svg{ width:100%; height:100%; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
   .leaflet-popup-content-wrapper{
     background:var(--paper); color:var(--ink); border-radius:10px;
@@ -231,7 +231,7 @@
   }
   #previewMap{ width:100%; height:100%; }
   #previewMap .leaflet-tile-pane{
-    filter: sepia(0.35) saturate(1.4) hue-rotate(-8deg) brightness(1.06) contrast(0.94);
+    filter: sepia(0.55) saturate(1.15) hue-rotate(-15deg) brightness(0.88) contrast(1.05);
   }
   .locate-row{ display:flex; gap:8px; margin-top:8px; }
   .locate-row input{ flex:1; }
@@ -257,10 +257,6 @@
   }
   .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
   .form-msg{ font-size:0.82rem; color:var(--brick); margin-top:8px; min-height:1em; }
-
-  .share-note{
-    font-size:0.78rem; color:var(--ink); opacity:0.65; text-align:center; margin-top:30px;
-  }
 
   @media (max-width:560px){
     h1{ font-size:1.6rem; }
@@ -322,7 +318,6 @@
     <p class="map-hint">tap a pin to peek at the notes 🍫</p>
   </div>
 
-  <p class="share-note">Know a great spot? Tap "+ Add a spot" — you'll need the passcode to save it.</p>
 
 </div>
 
@@ -425,19 +420,18 @@ const BEAN_SVG = (filled) => `
   </svg>`;
 
 const PIN_SVG = `
-  <svg viewBox="0 0 30 36" fill="none">
-    <path d="M15 35C15 35 27 21.5 27 13A12 12 0 1 0 3 13C3 21.5 15 35 15 35Z" fill="#A9502F" stroke="#3E2A20" stroke-width="1.5"/>
-    <path d="M15 6.5c4.5 1.8 7.2 6.3 7.2 10.8 0 5.4-3.6 9.9-7.2 10.8-3.6-0.9-7.2-5.4-7.2-10.8 0-4.5 2.7-9 7.2-10.8z" fill="#FBF5EA" stroke="#3E2A20" stroke-width="1.3"/>
-    <path d="M15 8.5v17.6" stroke="#3E2A20" stroke-width="1"/>
-    <path d="M15 12c-1.8 1.3-2.7 2.7-2.7 4.5M15 12c1.8 1.3 2.7 2.7 2.7 4.5M15 20c-1.8 1.3-2.7 2.7-2.7 4.5M15 20c1.8 1.3 2.7 2.7 2.7 4.5" stroke="#A9502F" stroke-width="0.8" fill="none"/>
+  <svg viewBox="0 0 64 64" fill="none">
+    <path d="M32 8c10 4 16 14 16 24 0 12-8 22-16 24-8-2-16-12-16-24 0-10 6-20 16-24z" fill="#A9502F" stroke="#3E2A20" stroke-width="2.5"/>
+    <path d="M32 10v44" stroke="#3E2A20" stroke-width="2"/>
+    <path d="M32 16c-4 3-6 6-6 10M32 16c4 3 6 6 6 10M32 30c-4 3-6 6-6 10M32 30c4 3 6 6 6 10" stroke="#7a3d24" stroke-width="1.6" fill="none"/>
   </svg>`;
 
 const cocoaIcon = L.divIcon({
   className: 'cocoa-pin',
   html: PIN_SVG,
-  iconSize: [30, 36],
-  iconAnchor: [15, 35],
-  popupAnchor: [0, -32]
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -18]
 });
 
 function buildLegend(){
