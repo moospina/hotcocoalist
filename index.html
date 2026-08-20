@@ -179,6 +179,11 @@
     font-size:0.92rem; line-height:1.45; color:var(--ink); margin:0;
     white-space:pre-wrap;
   }
+  .website-link{
+    display:inline-block; margin-top:8px; font-size:0.85rem; font-weight:600;
+    color:var(--brick); text-decoration:none; border-bottom:1px solid var(--brick);
+  }
+  .website-link:hover{ opacity:0.75; }
   .card .del{
     position:absolute; top:10px; right:10px; background:none; border:none;
     color: var(--line); cursor:pointer; font-size:0.85rem; opacity:0.5;
@@ -380,6 +385,9 @@
     <label>Notes</label>
     <textarea id="fNotes" placeholder="what makes it good, what to order..."></textarea>
 
+    <label>Website (optional)</label>
+    <input type="text" id="fWebsite" placeholder="e.g. theircafewebsite.com">
+
     <label>Passcode</label>
     <input type="password" id="fPass" placeholder="enter passcode to save">
 
@@ -542,8 +550,11 @@ function ensurePreviewMap(){
 const COUNTRY_ABBREV_OVERRIDES = { gb: 'UK', us: 'US' };
 function buildShortLocationLabel(address){
   if(!address) return null;
+  // Deliberately never touches house_number/road — only city-level fields and up,
+  // so a street address typed into the Location box never leaks through.
   const city = address.city || address.town || address.village || address.hamlet ||
-    address.municipality || address.county;
+    address.municipality || address.suburb || address.city_district ||
+    address.county || address.state_district;
   const countryCode = (address.country_code || '').toLowerCase();
   let region = null;
 
@@ -558,6 +569,7 @@ function buildShortLocationLabel(address){
 
   if(city && region) return `${city}, ${region}`;
   if(city) return city;
+  if(region) return region;
   return address.country || null;
 }
 
@@ -571,8 +583,9 @@ async function geocodeLocation(query){
   const results = await response.json();
   if(!results || !results.length) throw new Error('Could not find that location.');
   const best = results[0];
-  const shortLabel = buildShortLocationLabel(best.address) ||
-    best.display_name.split(',').slice(0, 3).join(',').trim();
+  // Only ever build the label from structured city/state/country fields — never
+  // from the raw display_name, which can start with a house number and street.
+  const shortLabel = buildShortLocationLabel(best.address);
   return { lat: parseFloat(best.lat), lng: parseFloat(best.lon), label: shortLabel || query };
 }
 
@@ -649,6 +662,7 @@ function renderList(){
       <div class="loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating)}
       <p class="notes">${escapeHtml(s.notes || '')}</p>
+      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
     </div>
   `).join('');
   listView.querySelectorAll('.del').forEach(btn=>{
@@ -721,6 +735,7 @@ function renderMap(){
       <div class="popup-loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating, 14)}
       <div class="popup-notes">${escapeHtml(s.notes || '')}</div>
+      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
     `);
     marker.addTo(markerLayer);
   });
@@ -783,6 +798,7 @@ function openEditModal(id){
   document.getElementById('fName').value = spot.name;
   document.getElementById('fLoc').value = spot.location;
   document.getElementById('fNotes').value = spot.notes || '';
+  document.getElementById('fWebsite').value = spot.website || '';
   document.getElementById('fPass').value = '';
   currentRating = spot.rating || 0;
   buildRateRow();
@@ -936,6 +952,7 @@ function resetForm(){
   document.getElementById('fName').value='';
   document.getElementById('fLoc').value='';
   document.getElementById('fNotes').value='';
+  document.getElementById('fWebsite').value='';
   document.getElementById('fPass').value='';
   currentRating = 0; buildRateRow();
   pendingPin = null;
@@ -964,6 +981,10 @@ saveAdd.addEventListener('click', async ()=>{
   const name = document.getElementById('fName').value.trim();
   const location = document.getElementById('fLoc').value.trim();
   const notes = document.getElementById('fNotes').value.trim();
+  let website = document.getElementById('fWebsite').value.trim();
+  if(website && !/^https?:\/\//i.test(website)){
+    website = 'https://' + website;
+  }
 
   if(!name || !location){
     formMsg.textContent = 'Please add at least a name and location.';
@@ -989,6 +1010,7 @@ saveAdd.addEventListener('click', async ()=>{
     if(isEditing){
       const updates = {
         name, location, notes,
+        website: website || null,
         rating: currentRating,
         lat: pendingPin.lat,
         lng: pendingPin.lng
@@ -1014,6 +1036,7 @@ saveAdd.addEventListener('click', async ()=>{
       const spot = {
         id: 'spot_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
         name, location, notes,
+        website: website || null,
         rating: currentRating,
         lat: pendingPin.lat,
         lng: pendingPin.lng,

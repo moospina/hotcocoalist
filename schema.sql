@@ -10,12 +10,14 @@ create table if not exists spots (
   lat double precision,
   lng double precision,
   created_at bigint,
-  sort_order int
+  sort_order int,
+  website text
 );
 
--- If this table already existed before sort_order was added, this makes
--- sure the column is there without wiping anything out.
+-- If this table already existed before sort_order/website were added, this
+-- makes sure the columns are there without wiping anything out.
 alter table spots add column if not exists sort_order int;
+alter table spots add column if not exists website text;
 
 -- Turn on row-level security, then explicitly allow the public (anon) key
 -- used by the website to read, add, and remove rows. See the setup note
