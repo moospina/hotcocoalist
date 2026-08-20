@@ -995,12 +995,19 @@ saveAdd.addEventListener('click', async ()=>{
       };
       const res = await fetch(SUPABASE_URL + '/rest/v1/spots?id=eq.' + encodeURIComponent(editingId), {
         method: 'PATCH',
-        headers: supabaseHeaders({ 'Prefer': 'return=minimal' }),
+        headers: supabaseHeaders({ 'Prefer': 'return=representation' }),
         body: JSON.stringify(updates)
       });
       if(!res.ok){
         const errText = await res.text().catch(()=> '');
         throw new Error('Server rejected the update (status ' + res.status + '). ' + errText);
+      }
+      const updatedRows = await res.json().catch(()=> []);
+      if(!updatedRows.length){
+        // PostgREST returns a success status even when a row-level security
+        // policy silently blocks the write and 0 rows are affected — this
+        // check is what catches that case and turns it into a visible error.
+        throw new Error('The database didn’t apply this change (0 rows updated). This usually means the "update" permission is missing in Supabase — check that the update policy from schema.sql has been run.');
       }
       spots = spots.map(s => s.id === editingId ? Object.assign({}, s, updates) : s);
     } else {
