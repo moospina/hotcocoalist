@@ -83,13 +83,16 @@
 
   .toolbar{ display:flex; }
 
-  .search-row{ display:flex; justify-content:center; margin-bottom:22px; }
-  .search-row input{
-    width:100%; max-width:420px; border:1.5px solid var(--line); border-radius:999px;
-    padding:10px 16px; font-family:'Work Sans', sans-serif; font-size:0.92rem;
-    background:#fff; color:var(--ink);
+  .search-row{
+    display:flex; justify-content:center; align-items:center;
+    gap:10px; flex-wrap:wrap; margin-bottom:22px;
   }
-  .search-row input:focus{ outline:none; border-color:var(--brick); }
+  .search-row select{
+    border:1.5px solid var(--line); border-radius:999px; padding:9px 14px;
+    font-family:'Work Sans', sans-serif; font-size:0.88rem; background:#fff; color:var(--ink);
+    cursor:pointer;
+  }
+  .search-row select:focus{ outline:none; border-color:var(--brick); }
 
   .card.dragging{ opacity:0.4; }
   .card .drag-handle{
@@ -327,7 +330,14 @@
   </div>
 
   <div class="search-row">
-    <input type="text" id="searchBox" placeholder="Search by name, city, or notes...">
+    <select id="sortSelect">
+      <option value="rating-desc">Sort: Highest rated</option>
+      <option value="rating-asc">Sort: Lowest rated</option>
+      <option value="name-asc">Sort: Name A–Z</option>
+    </select>
+    <select id="locationSelect">
+      <option value="">All locations</option>
+    </select>
   </div>
 
   <div id="loading" style="text-align:center; padding:40px; opacity:0.6;">Warming up the list…</div>
@@ -489,9 +499,21 @@ let editingId = null; // null = adding a new spot, otherwise the id of the spot 
 
 const listView = document.getElementById('listView');
 const mapView = document.getElementById('mapView');
-const searchBox = document.getElementById('searchBox');
+const sortSelect = document.getElementById('sortSelect');
+const locationSelect = document.getElementById('locationSelect');
 const loadingEl = document.getElementById('loading');
 const loadErrorEl = document.getElementById('loadError');
+
+// Regular visitors only get Highest rated / Lowest rated / Name A-Z. In manage
+// mode, an extra "My order" choice is added so you can see (and drag to
+// rearrange) the manually-set order — public visitors never see this option.
+if(MANAGE_MODE){
+  const myOrderOpt = document.createElement('option');
+  myOrderOpt.value = 'default';
+  myOrderOpt.textContent = 'Sort: My order (drag to arrange)';
+  sortSelect.insertBefore(myOrderOpt, sortSelect.firstChild);
+  sortSelect.value = 'default';
+}
 
 // Main world map
 const worldMap = L.map('worldMap', { scrollWheelZoom: true }).setView([20, 0], 2);
@@ -515,17 +537,42 @@ function ensurePreviewMap(){
   }).addTo(previewMap);
 }
 
+// Turns Nominatim's structured address into a short "City, ST" / "City, Country"
+// label, e.g. "Chicago, IL", "Los Angeles, CA", "London, UK".
+const COUNTRY_ABBREV_OVERRIDES = { gb: 'UK', us: 'US' };
+function buildShortLocationLabel(address){
+  if(!address) return null;
+  const city = address.city || address.town || address.village || address.hamlet ||
+    address.municipality || address.county;
+  const countryCode = (address.country_code || '').toLowerCase();
+  let region = null;
+
+  if(countryCode === 'us' || countryCode === 'ca'){
+    // Nominatim includes a field like "US-IL" or "CA-ON" with addressdetails=1
+    const iso = address['ISO3166-2-lvl4'];
+    if(iso && iso.includes('-')) region = iso.split('-')[1];
+    else if(address.state) region = address.state;
+  } else if(countryCode){
+    region = COUNTRY_ABBREV_OVERRIDES[countryCode] || countryCode.toUpperCase();
+  }
+
+  if(city && region) return `${city}, ${region}`;
+  if(city) return city;
+  return address.country || null;
+}
+
 // Geocoding via OpenStreetMap's free Nominatim service (no account/key needed).
 // Please be a good citizen of the free service: don't hammer it with rapid
 // requests. See https://operations.osmfoundation.org/policies/nominatim/
 async function geocodeLocation(query){
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=0&q=' + encodeURIComponent(query);
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=' + encodeURIComponent(query);
   const response = await fetch(url, { headers: { 'Accept-Language': 'en' } });
   if(!response.ok) throw new Error('Location lookup failed.');
   const results = await response.json();
   if(!results || !results.length) throw new Error('Could not find that location.');
   const best = results[0];
-  const shortLabel = best.display_name.split(',').slice(0, 3).join(',').trim();
+  const shortLabel = buildShortLocationLabel(best.address) ||
+    best.display_name.split(',').slice(0, 3).join(',').trim();
   return { lat: parseFloat(best.lat), lng: parseFloat(best.lon), label: shortLabel || query };
 }
 
@@ -538,19 +585,38 @@ function renderBeans(rating, size=14){
 }
 
 function getFilteredSpots(){
-  const q = (searchBox && searchBox.value || '').trim().toLowerCase();
-  if(!q) return spots;
-  return spots.filter(s =>
-    (s.name || '').toLowerCase().includes(q) ||
-    (s.location || '').toLowerCase().includes(q) ||
-    (s.notes || '').toLowerCase().includes(q)
-  );
+  const loc = locationSelect ? locationSelect.value : '';
+  const sortMode = sortSelect ? sortSelect.value : 'rating-desc';
+
+  let result = spots.filter(s => !loc || s.location === loc);
+
+  if(sortMode === 'rating-desc'){
+    result = result.slice().sort((a,b) => (b.rating||0) - (a.rating||0));
+  } else if(sortMode === 'rating-asc'){
+    result = result.slice().sort((a,b) => (a.rating||0) - (b.rating||0));
+  } else if(sortMode === 'name-asc'){
+    result = result.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  }
+  // 'default' (manage mode only) keeps the manually-arranged server order
+
+  return result;
+}
+
+function populateLocationFilter(){
+  if(!locationSelect) return;
+  const current = locationSelect.value;
+  const uniqueLocations = Array.from(new Set(spots.map(s => s.location).filter(Boolean))).sort();
+  locationSelect.innerHTML = '<option value="">All locations</option>' +
+    uniqueLocations.map(loc => `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`).join('');
+  if(uniqueLocations.includes(current)) locationSelect.value = current;
 }
 
 let dragSourceId = null;
 
 function renderList(){
+  populateLocationFilter();
   const visible = getFilteredSpots();
+  const dragEnabled = MANAGE_MODE && sortSelect && sortSelect.value === 'default' && !(locationSelect && locationSelect.value);
 
   if(spots.length === 0){
     listView.innerHTML = `<div class="empty" style="grid-column:1/-1;">
@@ -574,9 +640,9 @@ function renderList(){
   }
 
   listView.innerHTML = visible.map(s => `
-    <div class="card" data-id="${s.id}" ${MANAGE_MODE ? 'draggable="true"' : ''}>
+    <div class="card" data-id="${s.id}" ${dragEnabled ? 'draggable="true"' : ''}>
       <div class="tape"></div>
-      ${MANAGE_MODE ? `<span class="drag-handle" title="Drag to reorder">⠿</span>
+      ${MANAGE_MODE ? `${dragEnabled ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
       <button class="edit" data-id="${s.id}" title="Edit">✎</button>
       <button class="del" data-id="${s.id}" title="Remove">✕</button>` : ''}
       <h3>${escapeHtml(s.name)}</h3>
@@ -592,7 +658,7 @@ function renderList(){
     btn.addEventListener('click', () => openEditModal(btn.dataset.id));
   });
 
-  if(MANAGE_MODE){
+  if(dragEnabled){
     listView.querySelectorAll('.card').forEach(card => {
       card.addEventListener('dragstart', () => {
         dragSourceId = card.dataset.id;
@@ -689,11 +755,13 @@ async function loadSpots(){
   fitMapToSpots();
 }
 
-searchBox.addEventListener('input', ()=>{
+function refreshVisible(){
   renderList();
   renderMap();
   fitMapToSpots();
-});
+}
+sortSelect.addEventListener('change', refreshVisible);
+locationSelect.addEventListener('change', refreshVisible);
 
 function fitMapToSpots(){
   const withCoords = getFilteredSpots().filter(s => s.lat != null && s.lng != null);
