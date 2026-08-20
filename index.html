@@ -81,7 +81,22 @@
   .add-btn:hover{ transform: translateY(-1px); }
   .add-btn:active{ transform: translateY(2px); box-shadow: 0 1px 0 rgba(62,42,32,0.35); }
 
-  .toolbar{ display:flex; justify-content:flex-end; margin-bottom:18px; }
+  .toolbar{ display:flex; }
+
+  .search-row{ display:flex; justify-content:center; margin-bottom:22px; }
+  .search-row input{
+    width:100%; max-width:420px; border:1.5px solid var(--line); border-radius:999px;
+    padding:10px 16px; font-family:'Work Sans', sans-serif; font-size:0.92rem;
+    background:#fff; color:var(--ink);
+  }
+  .search-row input:focus{ outline:none; border-color:var(--brick); }
+
+  .card.dragging{ opacity:0.4; }
+  .card .drag-handle{
+    position:absolute; top:10px; left:10px; color:var(--line); font-size:0.95rem;
+    cursor:grab; opacity:0.6; user-select:none;
+  }
+  .card .drag-handle:hover{ opacity:1; color:var(--sage); }
 
   /* ---------- Rating legend ---------- */
   .legend-card{
@@ -166,6 +181,11 @@
     color: var(--line); cursor:pointer; font-size:0.85rem; opacity:0.5;
   }
   .card .del:hover{ opacity:1; color:var(--brick); }
+  .card .edit{
+    position:absolute; top:10px; right:32px; background:none; border:none;
+    color: var(--line); cursor:pointer; font-size:0.9rem; opacity:0.5;
+  }
+  .card .edit:hover{ opacity:1; color:var(--sage); }
 
   /* ---------- Map view ---------- */
   #mapView{ display:none; }
@@ -279,12 +299,6 @@
         <span class="sub">oh, my breath smells like chocolate</span>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
-      <div class="view-toggle">
-        <button id="btnList" class="active">List</button>
-        <button id="btnMap">Map</button>
-      </div>
-    </div>
   </header>
 
   <div class="notes-row">
@@ -302,8 +316,18 @@
     </div>
   </div>
 
-  <div class="toolbar">
-    <button class="add-btn" id="openAdd">+ Add a spot</button>
+  <div style="display:flex; justify-content:center; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap;">
+    <div class="view-toggle">
+      <button id="btnList" class="active">List</button>
+      <button id="btnMap">Map</button>
+    </div>
+    <div class="toolbar" id="toolbar" style="display:none;">
+      <button class="add-btn" id="openAdd">+ Add a spot</button>
+    </div>
+  </div>
+
+  <div class="search-row">
+    <input type="text" id="searchBox" placeholder="Search by name, city, or notes...">
   </div>
 
   <div id="loading" style="text-align:center; padding:40px; opacity:0.6;">Warming up the list…</div>
@@ -324,7 +348,7 @@
 <!-- Add spot modal -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h2>Add a hot cocoa spot</h2>
+    <h2 id="modalTitle">Add a hot cocoa spot</h2>
     <p class="hint">Enter a name and location, then tap Locate to find it on the map.</p>
 
     <label>Name</label>
@@ -353,6 +377,7 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="cancelAdd">Cancel</button>
       <button class="btn-primary" id="saveAdd">Save spot</button>
+      <!-- label text is swapped between "Save spot" / "Save changes" by JS depending on add vs edit mode -->
     </div>
   </div>
 </div>
@@ -395,6 +420,15 @@
 ===================================================================== */
 const SUPABASE_URL = "https://xaaxhgiahyxkzrptvvgi.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhYXhoZ2lhaHl4a3pycHR2dmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNzUxMzgsImV4cCI6MjEwMjc1MTEzOH0.ZJXdvfHk_kYmKUKJ5qaIV5xXu9aLL_IeTHOa8f9REj8";
+
+// The "+ Add a spot" button and the edit/delete icons on each card are hidden
+// from regular visitors. Only someone who loads the page with ?manage=1 in
+// the URL sees them (you can bookmark that link for yourself). This is on
+// top of the passcode, not instead of it.
+const MANAGE_MODE = new URLSearchParams(window.location.search).get('manage') === '1';
+if(MANAGE_MODE){
+  document.getElementById('toolbar').style.display = 'flex';
+}
 
 function supabaseHeaders(extra){
   return Object.assign({
@@ -451,9 +485,11 @@ buildLegend();
 let spots = [];
 let currentRating = 0;
 let pendingPin = null; // {lat, lng, label}
+let editingId = null; // null = adding a new spot, otherwise the id of the spot being edited
 
 const listView = document.getElementById('listView');
 const mapView = document.getElementById('mapView');
+const searchBox = document.getElementById('searchBox');
 const loadingEl = document.getElementById('loading');
 const loadErrorEl = document.getElementById('loadError');
 
@@ -501,7 +537,21 @@ function renderBeans(rating, size=14){
   return html + '</div>';
 }
 
+function getFilteredSpots(){
+  const q = (searchBox && searchBox.value || '').trim().toLowerCase();
+  if(!q) return spots;
+  return spots.filter(s =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.location || '').toLowerCase().includes(q) ||
+    (s.notes || '').toLowerCase().includes(q)
+  );
+}
+
+let dragSourceId = null;
+
 function renderList(){
+  const visible = getFilteredSpots();
+
   if(spots.length === 0){
     listView.innerHTML = `<div class="empty" style="grid-column:1/-1;">
       <svg class="cup-mark" viewBox="0 0 64 64" fill="none">
@@ -514,10 +564,21 @@ function renderList(){
     </div>`;
     return;
   }
-  listView.innerHTML = spots.map(s => `
-    <div class="card">
+
+  if(visible.length === 0){
+    listView.innerHTML = `<div class="empty" style="grid-column:1/-1;">
+      <h3>No matches</h3>
+      <p>Try a different search term.</p>
+    </div>`;
+    return;
+  }
+
+  listView.innerHTML = visible.map(s => `
+    <div class="card" data-id="${s.id}" ${MANAGE_MODE ? 'draggable="true"' : ''}>
       <div class="tape"></div>
-      <button class="del" data-id="${s.id}" title="Remove">✕</button>
+      ${MANAGE_MODE ? `<span class="drag-handle" title="Drag to reorder">⠿</span>
+      <button class="edit" data-id="${s.id}" title="Edit">✎</button>
+      <button class="del" data-id="${s.id}" title="Remove">✕</button>` : ''}
       <h3>${escapeHtml(s.name)}</h3>
       <div class="loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating)}
@@ -527,11 +588,66 @@ function renderList(){
   listView.querySelectorAll('.del').forEach(btn=>{
     btn.addEventListener('click', () => openDeleteModal(btn.dataset.id));
   });
+  listView.querySelectorAll('.edit').forEach(btn=>{
+    btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+  });
+
+  if(MANAGE_MODE){
+    listView.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('dragstart', () => {
+        dragSourceId = card.dataset.id;
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        dragSourceId = null;
+      });
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetId = card.dataset.id;
+        if(dragSourceId && targetId && dragSourceId !== targetId){
+          reorderSpots(dragSourceId, targetId);
+        }
+      });
+    });
+  }
+}
+
+function reorderSpots(draggedId, targetId){
+  const fromIndex = spots.findIndex(s => s.id === draggedId);
+  if(fromIndex === -1) return;
+  const [moved] = spots.splice(fromIndex, 1);
+  let toIndex = spots.findIndex(s => s.id === targetId);
+  if(toIndex === -1) toIndex = spots.length;
+  spots.splice(toIndex, 0, moved);
+  renderList();
+  renderMap();
+  persistOrder();
+}
+
+async function persistOrder(){
+  const snapshot = spots.map((s, i) => ({ id: s.id, sort_order: i }));
+  spots = spots.map((s, i) => Object.assign({}, s, { sort_order: i }));
+  try{
+    await Promise.all(snapshot.map(s =>
+      fetch(SUPABASE_URL + '/rest/v1/spots?id=eq.' + encodeURIComponent(s.id), {
+        method: 'PATCH',
+        headers: supabaseHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ sort_order: s.sort_order })
+      })
+    ));
+  }catch(e){
+    console.error('Failed to save the new order', e);
+  }
 }
 
 function renderMap(){
   markerLayer.clearLayers();
-  spots.forEach(s=>{
+  const visible = getFilteredSpots();
+  visible.forEach(s=>{
     if(s.lat == null || s.lng == null) return;
     const marker = L.marker([s.lat, s.lng], { icon: cocoaIcon });
     marker.bindPopup(`
@@ -556,7 +672,7 @@ async function loadSpots(){
     if(SUPABASE_URL.indexOf('YOUR_SUPABASE') === 0){
       throw new Error('This site is not connected to a database yet — see the setup comment at the top of the script.');
     }
-    const res = await fetch(SUPABASE_URL + '/rest/v1/spots?select=*&order=created_at.desc', {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/spots?select=*&order=sort_order.asc.nullslast,created_at.desc', {
       headers: supabaseHeaders()
     });
     if(!res.ok) throw new Error('Failed to load spots (status ' + res.status + ').');
@@ -570,14 +686,64 @@ async function loadSpots(){
   loadingEl.style.display = 'none';
   renderList();
   renderMap();
-  const withCoords = spots.filter(s => s.lat != null && s.lng != null);
-  if(withCoords.length){
-    const bounds = L.latLngBounds(withCoords.map(s => [s.lat, s.lng]));
-    worldMap.fitBounds(bounds, { padding: [40,40], maxZoom: 10 });
+  fitMapToSpots();
+}
+
+searchBox.addEventListener('input', ()=>{
+  renderList();
+  renderMap();
+  fitMapToSpots();
+});
+
+function fitMapToSpots(){
+  const withCoords = getFilteredSpots().filter(s => s.lat != null && s.lng != null);
+  if(!withCoords.length) return;
+  const bounds = L.latLngBounds(withCoords.map(s => [s.lat, s.lng]));
+  if(withCoords.length === 1){
+    worldMap.setView(bounds.getCenter(), 12);
+  } else {
+    worldMap.fitBounds(bounds, { padding: [40,40], maxZoom: 12 });
   }
 }
 
 let pendingDeleteId = null;
+
+function openEditModal(id){
+  const spot = spots.find(s => s.id === id);
+  if(!spot) return;
+  editingId = id;
+  document.getElementById('fName').value = spot.name;
+  document.getElementById('fLoc').value = spot.location;
+  document.getElementById('fNotes').value = spot.notes || '';
+  document.getElementById('fPass').value = '';
+  currentRating = spot.rating || 0;
+  buildRateRow();
+  pendingPin = { lat: spot.lat, lng: spot.lng, label: spot.location };
+  formMsg.textContent = '';
+  if(spot.lat != null && spot.lng != null){
+    locateStatus.textContent = 'Using existing location: ' + spot.location;
+    locateStatus.className = 'locate-status ok';
+    miniMap.style.display = 'block';
+    ensurePreviewMap();
+    setTimeout(()=>{
+      previewMap.invalidateSize();
+      previewMap.setView([spot.lat, spot.lng], 11);
+      if(previewMarker) previewMap.removeLayer(previewMarker);
+      previewMarker = L.marker([spot.lat, spot.lng], { icon: cocoaIcon, draggable: true }).addTo(previewMap);
+      previewMarker.on('dragend', ()=>{
+        const p = previewMarker.getLatLng();
+        pendingPin.lat = p.lat; pendingPin.lng = p.lng;
+      });
+    }, 50);
+  } else {
+    locateStatus.textContent = '';
+    locateStatus.className = 'locate-status';
+    miniMap.style.display = 'none';
+  }
+  document.getElementById('modalTitle').textContent = 'Edit this spot';
+  saveAdd.textContent = 'Save changes';
+  overlay.classList.add('open');
+}
 
 function openDeleteModal(id){
   const spot = spots.find(s => s.id === id);
@@ -626,7 +792,10 @@ btnList.addEventListener('click', ()=>{
 btnMap.addEventListener('click', ()=>{
   btnMap.classList.add('active'); btnList.classList.remove('active');
   listView.style.display='none'; mapView.style.display='block';
-  setTimeout(()=> worldMap.invalidateSize(), 50);
+  setTimeout(()=>{
+    worldMap.invalidateSize();
+    fitMapToSpots();
+  }, 50);
 });
 
 // Rating picker in modal
@@ -695,6 +864,7 @@ const saveAdd = document.getElementById('saveAdd');
 const formMsg = document.getElementById('formMsg');
 
 function resetForm(){
+  editingId = null;
   document.getElementById('fName').value='';
   document.getElementById('fLoc').value='';
   document.getElementById('fNotes').value='';
@@ -704,6 +874,8 @@ function resetForm(){
   miniMap.style.display='none';
   locateStatus.textContent=''; locateStatus.className='locate-status';
   formMsg.textContent='';
+  document.getElementById('modalTitle').textContent = 'Add a hot cocoa spot';
+  saveAdd.textContent = 'Save spot';
 }
 
 openAdd.addEventListener('click', ()=>{ resetForm(); overlay.classList.add('open'); });
@@ -741,28 +913,48 @@ saveAdd.addEventListener('click', async ()=>{
     return;
   }
 
-  const spot = {
-    id: 'spot_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-    name, location, notes,
-    rating: currentRating,
-    lat: pendingPin.lat,
-    lng: pendingPin.lng,
-    created_at: Date.now()
-  };
+  const isEditing = editingId != null;
 
   saveAdd.disabled = true;
-  formMsg.textContent = 'Saving…';
+  formMsg.textContent = isEditing ? 'Saving changes…' : 'Saving…';
   try{
-    const res = await fetch(SUPABASE_URL + '/rest/v1/spots', {
-      method: 'POST',
-      headers: supabaseHeaders({ 'Prefer': 'return=minimal' }),
-      body: JSON.stringify(spot)
-    });
-    if(!res.ok){
-      const errText = await res.text().catch(()=> '');
-      throw new Error('Server rejected the save (status ' + res.status + '). ' + errText);
+    if(isEditing){
+      const updates = {
+        name, location, notes,
+        rating: currentRating,
+        lat: pendingPin.lat,
+        lng: pendingPin.lng
+      };
+      const res = await fetch(SUPABASE_URL + '/rest/v1/spots?id=eq.' + encodeURIComponent(editingId), {
+        method: 'PATCH',
+        headers: supabaseHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(updates)
+      });
+      if(!res.ok){
+        const errText = await res.text().catch(()=> '');
+        throw new Error('Server rejected the update (status ' + res.status + '). ' + errText);
+      }
+      spots = spots.map(s => s.id === editingId ? Object.assign({}, s, updates) : s);
+    } else {
+      const spot = {
+        id: 'spot_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        name, location, notes,
+        rating: currentRating,
+        lat: pendingPin.lat,
+        lng: pendingPin.lng,
+        created_at: Date.now()
+      };
+      const res = await fetch(SUPABASE_URL + '/rest/v1/spots', {
+        method: 'POST',
+        headers: supabaseHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(spot)
+      });
+      if(!res.ok){
+        const errText = await res.text().catch(()=> '');
+        throw new Error('Server rejected the save (status ' + res.status + '). ' + errText);
+      }
+      spots.unshift(spot);
     }
-    spots.unshift(spot);
     renderList();
     renderMap();
     overlay.classList.remove('open');
