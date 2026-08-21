@@ -331,8 +331,11 @@
     </div>
     <div class="toolbar" id="toolbar" style="display:none;">
       <button class="add-btn" id="openAdd">+ Add a spot</button>
+      <button class="btn-secondary" id="cleanupLocations" style="margin-left:8px;">Clean up locations</button>
     </div>
   </div>
+
+  <div id="cleanupStatus" style="display:none; text-align:center; font-size:0.85rem; color:var(--brick); margin:-10px 0 16px;"></div>
 
   <div class="search-row">
     <select id="sortSelect">
@@ -916,6 +919,9 @@ btnLocate.addEventListener('click', async ()=>{
     const query = name ? `${name}, ${loc}` : loc;
     const result = await geocodeLocation(query);
     pendingPin = { lat: result.lat, lng: result.lng, label: result.label || loc };
+    // Replace whatever was typed (which may be a full street address) with the
+    // clean city/state/country label, since that's what actually gets saved.
+    document.getElementById('fLoc').value = pendingPin.label;
     locateStatus.textContent = 'Found: ' + pendingPin.label;
     locateStatus.className = 'locate-status ok';
     miniMap.style.display = 'block';
@@ -979,14 +985,14 @@ const PASSCODE = "1234567";
 
 saveAdd.addEventListener('click', async ()=>{
   const name = document.getElementById('fName').value.trim();
-  const location = document.getElementById('fLoc').value.trim();
+  const rawLocation = document.getElementById('fLoc').value.trim();
   const notes = document.getElementById('fNotes').value.trim();
   let website = document.getElementById('fWebsite').value.trim();
   if(website && !/^https?:\/\//i.test(website)){
     website = 'https://' + website;
   }
 
-  if(!name || !location){
+  if(!name || !rawLocation){
     formMsg.textContent = 'Please add at least a name and location.';
     return;
   }
@@ -995,6 +1001,11 @@ saveAdd.addEventListener('click', async ()=>{
     formMsg.textContent = 'Tap Locate to find this spot on the map first.';
     return;
   }
+
+  // Always save the clean, geocoded city/state/country label rather than
+  // whatever was typed in the box — this is what keeps a full street
+  // address from ending up in the location filter dropdown or on cards.
+  const location = pendingPin.label || rawLocation;
 
   const enteredPass = document.getElementById('fPass').value;
   if(enteredPass !== PASSCODE){
@@ -1062,6 +1073,52 @@ saveAdd.addEventListener('click', async ()=>{
   }
   saveAdd.disabled = false;
 });
+
+// Manage-mode-only tool: re-checks every existing spot's saved location
+// against the geocoder and shortens it to city/state/country, for spots
+// that were added before that cleanup was built in (or that still have a
+// full street address saved from before).
+const cleanupBtn = document.getElementById('cleanupLocations');
+const cleanupStatus = document.getElementById('cleanupStatus');
+if(MANAGE_MODE && cleanupBtn){
+  cleanupBtn.addEventListener('click', async ()=>{
+    cleanupBtn.disabled = true;
+    cleanupStatus.style.display = 'block';
+    let fixed = 0, checked = 0, failed = 0;
+    for(const spot of spots.slice()){
+      checked++;
+      cleanupStatus.textContent = `Checking locations… (${checked}/${spots.length})`;
+      try{
+        const result = await geocodeLocation(spot.location);
+        const shortLabel = result.label;
+        if(shortLabel && shortLabel !== spot.location){
+          const res = await fetch(SUPABASE_URL + '/rest/v1/spots?id=eq.' + encodeURIComponent(spot.id), {
+            method: 'PATCH',
+            headers: supabaseHeaders({ 'Prefer': 'return=representation' }),
+            body: JSON.stringify({ location: shortLabel })
+          });
+          const updatedRows = res.ok ? await res.json().catch(()=> []) : [];
+          if(res.ok && updatedRows.length){
+            spots = spots.map(s => s.id === spot.id ? Object.assign({}, s, { location: shortLabel }) : s);
+            fixed++;
+          } else {
+            failed++;
+          }
+        }
+      }catch(e){
+        console.error('Cleanup failed for spot', spot.id, e);
+        failed++;
+      }
+      // Be a good citizen of the free Nominatim service: max ~1 request/sec.
+      await new Promise(r => setTimeout(r, 1100));
+    }
+    renderList();
+    renderMap();
+    cleanupStatus.textContent = `Done — cleaned up ${fixed} spot${fixed === 1 ? '' : 's'}` +
+      (failed ? `, ${failed} couldn't be checked` : '') + '.';
+    cleanupBtn.disabled = false;
+  });
+}
 
 loadSpots();
 </script>
