@@ -48,3 +48,33 @@ on spots for update
 to anon
 using (true)
 with check (true);
+
+-- "Know a spot?" note submissions. Visitors can add notes; only you (via
+-- the manage link) actually see/delete them in the site's UI, though like
+-- everything else in this app the anon key itself isn't a hard security
+-- boundary — see the setup note at the top of index.html.
+create table if not exists suggestions (
+  id text primary key,
+  message text not null,
+  created_at bigint
+);
+
+alter table suggestions enable row level security;
+
+drop policy if exists "Public can add suggestions" on suggestions;
+create policy "Public can add suggestions"
+on suggestions for insert
+to anon
+with check (true);
+
+drop policy if exists "Public can read suggestions" on suggestions;
+create policy "Public can read suggestions"
+on suggestions for select
+to anon
+using (true);
+
+drop policy if exists "Public can delete suggestions" on suggestions;
+create policy "Public can delete suggestions"
+on suggestions for delete
+to anon
+using (true);

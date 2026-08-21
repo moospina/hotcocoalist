@@ -151,6 +151,19 @@
   .suggest-send{ width:100%; padding:8px 0; font-size:0.82rem; box-shadow:none; }
   .suggest-card .form-msg{ margin-top:6px; text-align:center; }
 
+  .suggestion-item{
+    border:1.5px solid var(--line); border-radius:8px; padding:10px 12px;
+    margin-bottom:10px; position:relative; background:var(--paper);
+  }
+  .suggestion-item p{ margin:0 24px 4px 0; font-size:0.9rem; line-height:1.4; white-space:pre-wrap; }
+  .suggestion-item .suggestion-date{ font-size:0.75rem; color:var(--ink); opacity:0.6; }
+  .suggestion-item .suggestion-del{
+    position:absolute; top:8px; right:8px; background:none; border:none;
+    color:var(--line); cursor:pointer; font-size:0.85rem; opacity:0.6;
+  }
+  .suggestion-item .suggestion-del:hover{ opacity:1; color:var(--brick); }
+  .suggestion-empty{ font-size:0.9rem; opacity:0.7; text-align:center; padding:20px 0; }
+
   /* ---------- Empty state ---------- */
   .empty{
     text-align:center; padding: 60px 20px; color: var(--ink); opacity:0.8;
@@ -342,6 +355,7 @@
     <div class="toolbar" id="toolbar" style="display:none;">
       <button class="add-btn" id="openAdd">+ Add a spot</button>
       <button class="btn-secondary" id="cleanupLocations" style="margin-left:8px;">Clean up locations</button>
+      <button class="btn-secondary" id="viewSuggestions" style="margin-left:8px;">View notes (<span id="suggestionCount">0</span>)</button>
     </div>
   </div>
 
@@ -375,7 +389,7 @@
       <div class="tape"></div>
       <span class="fave-title">know a spot?</span>
       <textarea id="suggestBox" class="suggest-box" placeholder="tell me about it..."></textarea>
-      <button type="button" class="add-btn suggest-send" id="suggestSend">Send me a note</button>
+      <button type="button" class="add-btn suggest-send" id="suggestSend">Submit note</button>
       <div class="form-msg" id="suggestMsg"></div>
     </div>
   </div>
@@ -433,6 +447,18 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="cancelDelete">Cancel</button>
       <button class="btn-primary" id="confirmDelete">Remove spot</button>
+    </div>
+  </div>
+</div>
+
+<!-- Submitted notes modal (manage mode only) -->
+<div class="overlay" id="suggestionsOverlay">
+  <div class="modal">
+    <h2>Submitted notes</h2>
+    <p class="hint">Notes visitors have sent through the "know a spot?" box.</p>
+    <div id="suggestionsList"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="closeSuggestions">Close</button>
     </div>
   </div>
 </div>
@@ -1134,23 +1160,121 @@ if(MANAGE_MODE && cleanupBtn){
   });
 }
 
-// "Know a spot?" sticky note — opens the visitor's email app with a
-// pre-filled note addressed to you, using their own message text.
+// "Know a spot?" sticky note — saves the note straight to the database so
+// it shows up for you right on the site, no email needed.
 const suggestSend = document.getElementById('suggestSend');
 const suggestBox = document.getElementById('suggestBox');
 const suggestMsg = document.getElementById('suggestMsg');
 if(suggestSend){
-  suggestSend.addEventListener('click', ()=>{
+  suggestSend.addEventListener('click', async ()=>{
     const msg = suggestBox.value.trim();
     if(!msg){
       suggestMsg.textContent = 'Write a quick note first!';
       return;
     }
-    suggestMsg.textContent = '';
-    const subject = encodeURIComponent('Hot cocoa spot recommendation');
-    const body = encodeURIComponent(msg);
-    window.location.href = `mailto:mariah@theultimatehuman.com?subject=${subject}&body=${body}`;
+    suggestSend.disabled = true;
+    suggestMsg.textContent = 'Sending…';
+    try{
+      const note = {
+        id: 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        message: msg,
+        created_at: Date.now()
+      };
+      const res = await fetch(SUPABASE_URL + '/rest/v1/suggestions', {
+        method: 'POST',
+        headers: supabaseHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(note)
+      });
+      if(!res.ok){
+        const errText = await res.text().catch(()=> '');
+        throw new Error('Could not submit (status ' + res.status + '). ' + errText);
+      }
+      suggestBox.value = '';
+      suggestMsg.textContent = 'Thanks — got it! 🍫';
+      if(MANAGE_MODE) refreshSuggestionCount();
+    }catch(e){
+      console.error('Submit note failed:', e);
+      suggestMsg.textContent = "Couldn't send that just now — mind trying again?";
+    }
+    suggestSend.disabled = false;
   });
+}
+
+// Manage-mode-only viewer for submitted "know a spot?" notes.
+const viewSuggestions = document.getElementById('viewSuggestions');
+const suggestionsOverlay = document.getElementById('suggestionsOverlay');
+const suggestionsList = document.getElementById('suggestionsList');
+const closeSuggestions = document.getElementById('closeSuggestions');
+const suggestionCountEl = document.getElementById('suggestionCount');
+
+async function fetchSuggestions(){
+  const res = await fetch(SUPABASE_URL + '/rest/v1/suggestions?select=*&order=created_at.desc', {
+    headers: supabaseHeaders()
+  });
+  if(!res.ok) throw new Error('Failed to load notes (status ' + res.status + ').');
+  return res.json();
+}
+
+async function refreshSuggestionCount(){
+  try{
+    const notes = await fetchSuggestions();
+    if(suggestionCountEl) suggestionCountEl.textContent = notes.length;
+  }catch(e){
+    console.error('Failed to refresh note count', e);
+  }
+}
+
+function renderSuggestions(notes){
+  if(!notes.length){
+    suggestionsList.innerHTML = '<p class="suggestion-empty">No notes yet.</p>';
+    return;
+  }
+  suggestionsList.innerHTML = notes.map(n => `
+    <div class="suggestion-item" data-id="${n.id}">
+      <button class="suggestion-del" data-id="${n.id}" title="Delete">✕</button>
+      <p>${escapeHtml(n.message)}</p>
+      <div class="suggestion-date">${n.created_at ? new Date(n.created_at).toLocaleString() : ''}</div>
+    </div>
+  `).join('');
+  suggestionsList.querySelectorAll('.suggestion-del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      btn.disabled = true;
+      try{
+        const res = await fetch(SUPABASE_URL + '/rest/v1/suggestions?id=eq.' + encodeURIComponent(btn.dataset.id), {
+          method: 'DELETE',
+          headers: supabaseHeaders()
+        });
+        if(!res.ok) throw new Error('Failed to delete (status ' + res.status + ').');
+        const item = suggestionsList.querySelector(`.suggestion-item[data-id="${CSS.escape(btn.dataset.id)}"]`);
+        if(item) item.remove();
+        if(!suggestionsList.children.length){
+          suggestionsList.innerHTML = '<p class="suggestion-empty">No notes yet.</p>';
+        }
+        refreshSuggestionCount();
+      }catch(e){
+        console.error('Delete note failed:', e);
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+if(MANAGE_MODE && viewSuggestions){
+  viewSuggestions.addEventListener('click', async ()=>{
+    suggestionsList.innerHTML = '<p class="suggestion-empty">Loading…</p>';
+    suggestionsOverlay.classList.add('open');
+    try{
+      const notes = await fetchSuggestions();
+      renderSuggestions(notes);
+      if(suggestionCountEl) suggestionCountEl.textContent = notes.length;
+    }catch(e){
+      console.error('Failed to load notes', e);
+      suggestionsList.innerHTML = '<p class="suggestion-empty">Could not load notes right now.</p>';
+    }
+  });
+  closeSuggestions.addEventListener('click', ()=> suggestionsOverlay.classList.remove('open'));
+  suggestionsOverlay.addEventListener('click', (e)=>{ if(e.target===suggestionsOverlay) suggestionsOverlay.classList.remove('open'); });
+  refreshSuggestionCount();
 }
 
 loadSpots();
