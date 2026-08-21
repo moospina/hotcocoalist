@@ -1190,7 +1190,7 @@ if(suggestSend){
         throw new Error('Could not submit (status ' + res.status + '). ' + errText);
       }
       suggestBox.value = '';
-      suggestMsg.textContent = 'Thanks — got it! 🍫';
+      suggestMsg.textContent = 'Thanks! 🍫';
       if(MANAGE_MODE) refreshSuggestionCount();
     }catch(e){
       console.error('Submit note failed:', e);
