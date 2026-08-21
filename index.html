@@ -36,13 +36,13 @@
 
   /* ---------- Header ---------- */
   header{
-    display:flex; align-items:flex-end; justify-content:space-between;
+    display:flex; align-items:center; justify-content:center;
     flex-wrap:wrap; gap:16px;
     margin-bottom: 26px;
     border-bottom: 2px dashed var(--line);
     padding-bottom: 18px;
   }
-  .title-block{ display:flex; align-items:center; gap:14px; }
+  .title-block{ display:flex; align-items:center; gap:14px; text-align:center; }
   .cup-mark{ width:46px; height:46px; flex-shrink:0; }
   h1{
     font-family:'Fraunces', serif;
@@ -312,6 +312,11 @@
   @media (max-width:560px){
     h1{ font-size:1.6rem; }
     .view-toggle button{ padding:7px 12px; font-size:0.82rem; }
+    .notes-row{ gap:10px; }
+    .legend-card, .fave-card{ width:150px; padding:12px 14px; }
+    .suggest-card{ width:150px; }
+    .legend-item{ font-size:0.72rem; }
+    .fave-name{ font-size:0.88rem; }
   }
 </style>
 </head>
