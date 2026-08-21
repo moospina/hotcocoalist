@@ -141,6 +141,16 @@
   }
   .fave-loc{ font-size:0.78rem; color:var(--brick); font-weight:600; margin-bottom:6px; }
 
+  .suggest-card{ width:210px; align-items:center; text-align:center; }
+  .suggest-box{
+    width:100%; min-height:64px; resize:vertical;
+    font-family:'Work Sans', sans-serif; font-size:0.8rem; color:var(--ink);
+    border:1.5px solid var(--line); border-radius:6px; padding:6px 8px;
+    margin-bottom:8px; background:#fff;
+  }
+  .suggest-send{ width:100%; padding:8px 0; font-size:0.82rem; box-shadow:none; }
+  .suggest-card .form-msg{ margin-top:6px; text-align:center; }
+
   /* ---------- Empty state ---------- */
   .empty{
     text-align:center; padding: 60px 20px; color: var(--ink); opacity:0.8;
@@ -360,6 +370,15 @@
     <p class="map-hint">tap a pin to peek at the notes 🍫</p>
   </div>
 
+  <div class="notes-row" style="margin-top:28px;">
+    <div class="legend-card suggest-card">
+      <div class="tape"></div>
+      <span class="fave-title">know a spot?</span>
+      <textarea id="suggestBox" class="suggest-box" placeholder="tell me about it..."></textarea>
+      <button type="button" class="add-btn suggest-send" id="suggestSend">Send me a note</button>
+      <div class="form-msg" id="suggestMsg"></div>
+    </div>
+  </div>
 
 </div>
 
@@ -460,18 +479,10 @@ function supabaseHeaders(extra){
 }
 
 const BEAN_SVG = (filled) => `
-  <svg viewBox="0 0 24 26" fill="none">
-    <path d="M4 7
-      C4.5 5.2 5.5 3.5 8 4
-      C9 2.2 11 4.3 12 2.5
-      C13 4.3 15 2.2 16 4
-      C18.5 3.5 19.5 5.2 20 7
-      L20 19
-      C20 23 16.5 25 12 25
-      C7.5 25 4 23 4 19
-      Z"
-      fill="#FBF5EA" stroke="${filled ? '#3E2A20' : 'rgba(62,42,32,0.35)'}" stroke-width="1.5" stroke-linejoin="round"/>
-    ${filled ? '<path d="M5 8c1.5 1 3 1.4 7 1.4s5.5-0.4 7-1.4" stroke="#3E2A20" stroke-width="0.9" fill="none" opacity="0.35"/>' : ''}
+  <svg viewBox="0 0 26 28" fill="none">
+    <rect x="3" y="5" width="20" height="19" rx="8" ry="8"
+      fill="#FBF5EA" stroke="${filled ? '#3E2A20' : 'rgba(62,42,32,0.35)'}" stroke-width="2.4"/>
+    ${filled ? '<path d="M7.5 11c1.5 1 3 1.3 5.5 1.3s4-0.3 5.5-1.3" stroke="#3E2A20" stroke-width="1.1" fill="none" opacity="0.3" stroke-linecap="round"/><path d="M7.5 16.5c1.5 1 3 1.3 5.5 1.3s4-0.3 5.5-1.3" stroke="#3E2A20" stroke-width="1.1" fill="none" opacity="0.22" stroke-linecap="round"/>' : ''}
   </svg>`;
 
 const PIN_SVG = `
@@ -593,9 +604,12 @@ async function geocodeLocation(query){
 }
 
 function renderBeans(rating, size=14){
+  // Only show the number of marshmallows that were actually rated — a 3
+  // out of 5 shows 3 marshmallows, not 3 filled + 2 empty ones.
+  const count = Math.max(0, Math.min(5, rating || 0));
   let html = '<div class="beans">';
-  for(let i=1;i<=5;i++){
-    html += `<span style="width:${size}px;height:${Math.round(size*1.1)}px;display:inline-block;">${BEAN_SVG(i<=rating)}</span>`;
+  for(let i=1;i<=count;i++){
+    html += `<span style="width:${size}px;height:${Math.round(size*1.1)}px;display:inline-block;">${BEAN_SVG(true)}</span>`;
   }
   return html + '</div>';
 }
@@ -1117,6 +1131,25 @@ if(MANAGE_MODE && cleanupBtn){
     cleanupStatus.textContent = `Done — cleaned up ${fixed} spot${fixed === 1 ? '' : 's'}` +
       (failed ? `, ${failed} couldn't be checked` : '') + '.';
     cleanupBtn.disabled = false;
+  });
+}
+
+// "Know a spot?" sticky note — opens the visitor's email app with a
+// pre-filled note addressed to you, using their own message text.
+const suggestSend = document.getElementById('suggestSend');
+const suggestBox = document.getElementById('suggestBox');
+const suggestMsg = document.getElementById('suggestMsg');
+if(suggestSend){
+  suggestSend.addEventListener('click', ()=>{
+    const msg = suggestBox.value.trim();
+    if(!msg){
+      suggestMsg.textContent = 'Write a quick note first!';
+      return;
+    }
+    suggestMsg.textContent = '';
+    const subject = encodeURIComponent('Hot cocoa spot recommendation');
+    const body = encodeURIComponent(msg);
+    window.location.href = `mailto:mariah@theultimatehuman.com?subject=${subject}&body=${body}`;
   });
 }
 
