@@ -97,9 +97,14 @@
 
   .card.dragging{ opacity:0.4; }
   .card .drag-handle{
-    position:absolute; top:10px; left:10px; color:var(--line); font-size:0.95rem;
+    position:absolute; top:10px; left:32px; color:var(--line); font-size:0.95rem;
     cursor:grab; opacity:0.6; user-select:none;
   }
+  .card .permalink{
+    position:absolute; top:9px; left:10px; color:var(--line); font-size:1rem;
+    text-decoration:none; opacity:0.55; line-height:1;
+  }
+  .card .permalink:hover{ opacity:1; color:var(--sage); }
   .card .drag-handle:hover{ opacity:1; color:var(--sage); }
 
   /* ---------- Rating legend ---------- */
@@ -362,6 +367,8 @@
       <option value="rating-desc">Sort: Highest rated</option>
       <option value="rating-asc">Sort: Lowest rated</option>
       <option value="name-asc">Sort: Name A–Z</option>
+      <option value="date-desc">Sort: Newest to oldest</option>
+      <option value="date-asc">Sort: Oldest to newest</option>
     </select>
     <select id="locationSelect">
       <option value="">All locations</option>
@@ -524,7 +531,7 @@ const cocoaIcon = L.divIcon({
 
 function buildLegend(){
   const legendScale = document.getElementById('legendScale');
-  const labels = ['fine', 'good', 'great', 'excellent', 'perfect'];
+  const labels = ['eh', 'good', 'great', 'excellent', 'perfect'];
   legendScale.innerHTML = labels.map((label, i) => {
     const n = i + 1;
     let beans = '';
@@ -648,6 +655,10 @@ function getFilteredSpots(){
     result = result.slice().sort((a,b) => (a.rating||0) - (b.rating||0));
   } else if(sortMode === 'name-asc'){
     result = result.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  } else if(sortMode === 'date-desc'){
+    result = result.slice().sort((a,b) => (b.created_at||0) - (a.created_at||0));
+  } else if(sortMode === 'date-asc'){
+    result = result.slice().sort((a,b) => (a.created_at||0) - (b.created_at||0));
   }
   // 'default' (manage mode only) keeps the manually-arranged server order
 
@@ -694,6 +705,7 @@ function renderList(){
   listView.innerHTML = visible.map(s => `
     <div class="card" data-id="${s.id}" ${dragEnabled ? 'draggable="true"' : ''}>
       <div class="tape"></div>
+      <a class="permalink" href="spot.html?id=${encodeURIComponent(s.id)}" title="Open this spot's page">↗</a>
       ${MANAGE_MODE ? `${dragEnabled ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
       <button class="edit" data-id="${s.id}" title="Edit">✎</button>
       <button class="del" data-id="${s.id}" title="Remove">✕</button>` : ''}
@@ -775,6 +787,7 @@ function renderMap(){
       ${renderBeans(s.rating, 14)}
       <div class="popup-notes">${escapeHtml(s.notes || '')}</div>
       ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
+      <a class="website-link" href="spot.html?id=${encodeURIComponent(s.id)}" style="display:block; margin-top:4px;">📄 View spot page</a>
     `);
     marker.addTo(markerLayer);
   });

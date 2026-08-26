@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M's Hot Cocoa Recs</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiNGM0U5RDYiLz4KICA8cGF0aCBkPSJNMzIgOGMxMCA0IDE2IDE0IDE2IDI0IDAgMTItOCAyMi0xNiAyNC04LTItMTYtMTItMTYtMjQgMC0xMCA2LTIwIDE2LTI0eiIgZmlsbD0iI0E5NTAyRiIgc3Ryb2tlPSIjM0UyQTIwIiBzdHJva2Utd2lkdGg9IjIuNSIvPgogIDxwYXRoIGQ9Ik0zMiAxMHY0NCIgc3Ryb2tlPSIjM0UyQTIwIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8cGF0aCBkPSJNMzIgMTZjLTQgMy02IDYtNiAxME0zMiAxNmM0IDMgNiA2IDYgMTBNMzIgMzBjLTQgMy02IDYtNiAxME0zMiAzMGM0IDMgNiA2IDYgMTAiIHN0cm9rZT0iIzdhM2QyNCIgc3Ryb2tlLXdpZHRoPSIxLjYiIGZpbGw9Im5vbmUiLz4KPC9zdmc+Cg==">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Work+Sans:wght@400;500;600&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --cream:#F3E9D6;
+    --paper:#FBF5EA;
+    --espresso:#3E2A20;
+    --brick:#A9502F;
+    --sage:#7C8A5C;
+    --gold:#C9962E;
+    --ink:#4A372B;
+    --line: rgba(62,42,32,0.18);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--cream);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(62,42,32,0.06) 1px, transparent 0);
+    background-size: 18px 18px;
+    color:var(--ink);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+    padding: 28px 20px 60px;
+  }
+  .wrap{ max-width: 640px; margin: 0 auto; }
+
+  .back-link{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'Work Sans', sans-serif; font-weight:600; font-size:0.9rem;
+    color:var(--ink); text-decoration:none; opacity:0.75; margin-bottom:22px;
+  }
+  .back-link:hover{ opacity:1; color:var(--brick); }
+
+  .spot-card{
+    background:var(--paper); border:1.5px solid var(--line); border-radius: 12px;
+    padding: 30px 28px 26px; position:relative;
+    box-shadow: 0 4px 12px rgba(62,42,32,0.1);
+  }
+  .tape{
+    position:absolute; top:-10px; left:50%; transform:translateX(-50%) rotate(-2deg);
+    width:70px; height:22px; background: rgba(201,150,46,0.55);
+    border:1px solid rgba(62,42,32,0.15);
+  }
+  .spot-card h1{
+    font-family:'Fraunces', serif; font-weight:700; font-size:1.7rem;
+    margin: 6px 0 4px; color:var(--espresso); line-height:1.15;
+  }
+  .spot-card .loc{
+    font-size:0.95rem; color:var(--brick); font-weight:600; margin-bottom:12px;
+    display:flex; align-items:center; gap:4px;
+  }
+  .beans{ display:flex; gap:5px; margin-bottom:16px; }
+  .beans svg{ width:20px; height:23px; }
+  .spot-card .notes{
+    font-size:1rem; line-height:1.6; color:var(--ink); margin:0 0 18px;
+    white-space:pre-wrap;
+  }
+  .website-link{
+    display:inline-block; margin-bottom:18px; font-size:0.92rem; font-weight:600;
+    color:var(--brick); text-decoration:none; border-bottom:1px solid var(--brick);
+  }
+  .website-link:hover{ opacity:0.75; }
+  .mini-map-frame{
+    width:100%; aspect-ratio: 16/9; background:var(--cream);
+    border:1.5px solid var(--espresso); border-radius:12px; overflow:hidden;
+    box-shadow: 0 3px 8px rgba(62,42,32,0.1);
+  }
+  #spotMap{ width:100%; height:100%; }
+
+  .state-msg{
+    text-align:center; padding: 60px 20px; color: var(--ink); opacity:0.75;
+  }
+  .state-msg h3{ font-family:'Fraunces', serif; font-size:1.3rem; margin: 0 0 6px; color:var(--espresso); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back-link" href="index.html">&larr; back to the full list</a>
+  <div id="content">
+    <div class="state-msg" id="loading">Warming up the cup…</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xaaxhgiahyxkzrptvvgi.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhYXhoZ2lhaHl4a3pycHR2dmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNzUxMzgsImV4cCI6MjEwMjc1MTEzOH0.ZJXdvfHk_kYmKUKJ5qaIV5xXu9aLL_IeTHOa8f9REj8";
+
+function supabaseHeaders(extra){
+  return Object.assign({
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+const BEAN_SVG = (filled) => `
+  <svg viewBox="0 0 26 32" fill="none">
+    <rect x="3" y="4" width="20" height="24" rx="8.5" ry="8.5"
+      fill="#FBF5EA" stroke="${filled ? '#3E2A20' : 'rgba(62,42,32,0.35)'}" stroke-width="2.4"/>
+    ${filled ? '<path d="M7.5 12c1.5 1 3 1.3 5.5 1.3s4-0.3 5.5-1.3" stroke="#3E2A20" stroke-width="1.1" fill="none" opacity="0.3" stroke-linecap="round"/><path d="M7.5 20c1.5 1 3 1.3 5.5 1.3s4-0.3 5.5-1.3" stroke="#3E2A20" stroke-width="1.1" fill="none" opacity="0.22" stroke-linecap="round"/>' : ''}
+  </svg>`;
+
+const PIN_SVG = `
+  <svg viewBox="0 0 64 64" fill="none">
+    <path d="M32 8c10 4 16 14 16 24 0 12-8 22-16 24-8-2-16-12-16-24 0-10 6-20 16-24z" fill="#A9502F" stroke="#3E2A20" stroke-width="2.5"/>
+    <path d="M32 10v44" stroke="#3E2A20" stroke-width="2"/>
+    <path d="M32 16c-4 3-6 6-6 10M32 16c4 3 6 6 6 10M32 30c-4 3-6 6-6 10M32 30c4 3 6 6 6 10" stroke="#7a3d24" stroke-width="1.6" fill="none"/>
+  </svg>`;
+
+const cocoaIcon = L.divIcon({
+  className: 'cocoa-pin',
+  html: PIN_SVG,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -18]
+});
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function renderBeans(rating){
+  const count = Math.max(0, Math.min(5, rating || 0));
+  let html = '<div class="beans">';
+  for(let i=1;i<=count;i++){
+    html += `<span style="width:20px;height:23px;display:inline-block;">${BEAN_SVG(true)}</span>`;
+  }
+  return html + '</div>';
+}
+
+const content = document.getElementById('content');
+
+function showMissingId(){
+  content.innerHTML = `<div class="state-msg">
+    <h3>No spot specified</h3>
+    <p>This page needs a spot id in the link, like spot.html?id=...</p>
+  </div>`;
+}
+
+function showNotFound(){
+  content.innerHTML = `<div class="state-msg">
+    <h3>Spot not found</h3>
+    <p>This one may have been removed. Head back to the full list to see what's there.</p>
+  </div>`;
+}
+
+function showError(){
+  content.innerHTML = `<div class="state-msg">
+    <h3>Couldn't load this spot</h3>
+    <p>Something went wrong reaching the list. Try refreshing.</p>
+  </div>`;
+}
+
+function renderSpot(s){
+  content.innerHTML = `
+    <div class="spot-card">
+      <div class="tape"></div>
+      <h1>${escapeHtml(s.name)}</h1>
+      <div class="loc">📍 ${escapeHtml(s.location)}</div>
+      ${renderBeans(s.rating)}
+      <p class="notes">${escapeHtml(s.notes || '')}</p>
+      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
+      ${(s.lat != null && s.lng != null) ? `<div class="mini-map-frame"><div id="spotMap"></div></div>` : ''}
+    </div>
+  `;
+
+  if(s.lat != null && s.lng != null){
+    const map = L.map('spotMap', { scrollWheelZoom:false }).setView([s.lat, s.lng], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      maxZoom: 18,
+      subdomains: 'abcd'
+    }).addTo(map);
+    L.marker([s.lat, s.lng], { icon: cocoaIcon }).addTo(map);
+    setTimeout(() => map.invalidateSize(), 50);
+  }
+
+  document.title = s.name + ' · M\'s Hot Cocoa Recs';
+}
+
+async function loadSpot(){
+  const id = new URLSearchParams(window.location.search).get('id');
+  if(!id){ showMissingId(); return; }
+
+  try{
+    const res = await fetch(SUPABASE_URL + '/rest/v1/spots?id=eq.' + encodeURIComponent(id) + '&select=*', {
+      headers: supabaseHeaders()
+    });
+    if(!res.ok) throw new Error('Failed to load spot (status ' + res.status + ').');
+    const rows = await res.json();
+    if(!rows || !rows.length){ showNotFound(); return; }
+    renderSpot(rows[0]);
+  }catch(e){
+    console.error('Failed to load spot:', e);
+    showError();
+  }
+}
+
+loadSpot();
+</script>
+</body>
+</html>
