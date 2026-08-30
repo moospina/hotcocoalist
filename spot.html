@@ -172,7 +172,7 @@ function renderSpot(s){
       <div class="loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating)}
       <p class="notes">${escapeHtml(s.notes || '')}</p>
-      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
+      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
       ${(s.lat != null && s.lng != null) ? `<div class="mini-map-frame"><div id="spotMap"></div></div>` : ''}
     </div>
   `;

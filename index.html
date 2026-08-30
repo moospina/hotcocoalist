@@ -709,7 +709,7 @@ function renderList(){
       <div class="loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating)}
       <p class="notes">${escapeHtml(s.notes || '')}</p>
-      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
+      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
     </div>
   `).join('');
   listView.querySelectorAll('.del').forEach(btn=>{
@@ -788,7 +788,7 @@ function renderMap(){
       <div class="popup-loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating, 14)}
       <div class="popup-notes">${escapeHtml(s.notes || '')}</div>
-      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
+      ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
       <a class="website-link" href="spot.html?id=${encodeURIComponent(s.id)}" style="display:block; margin-top:4px;">View spot page →</a>
     `);
     marker.addTo(markerLayer);
