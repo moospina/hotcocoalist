@@ -179,7 +179,7 @@ function renderSpot(s){
 
   if(s.lat != null && s.lng != null){
     const map = L.map('spotMap', { scrollWheelZoom:false }).setView([s.lat, s.lng], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png?key=cb1_2lfi_1_28db6df1a0992d88e9f417aa', {
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
       maxZoom: 18,
       subdomains: 'abcd'

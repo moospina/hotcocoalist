@@ -565,7 +565,7 @@ if(MANAGE_MODE){
 
 // Main world map
 const worldMap = L.map('worldMap', { scrollWheelZoom: true }).setView([20, 0], 2);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png?key=cb1_2lfi_1_28db6df1a0992d88e9f417aa', {
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   maxZoom: 18,
   subdomains: 'abcd'
@@ -578,7 +578,7 @@ let previewMarker = null;
 function ensurePreviewMap(){
   if(previewMap) return;
   previewMap = L.map('previewMap', { zoomControl:true, scrollWheelZoom:false }).setView([20,0], 2);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png?key=cb1_2lfi_1_28db6df1a0992d88e9f417aa', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     maxZoom: 18,
     subdomains: 'abcd'
