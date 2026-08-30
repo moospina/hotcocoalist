@@ -96,15 +96,12 @@
   .search-row select:focus{ outline:none; border-color:var(--brick); }
 
   .card.dragging{ opacity:0.4; }
+  .card{ cursor:pointer; transition: transform .15s, box-shadow .15s; }
+  .card:hover{ transform: translateY(-2px); box-shadow: 0 5px 12px rgba(62,42,32,0.14); }
   .card .drag-handle{
-    position:absolute; top:10px; left:32px; color:var(--line); font-size:0.95rem;
+    position:absolute; top:10px; left:10px; color:var(--line); font-size:0.95rem;
     cursor:grab; opacity:0.6; user-select:none;
   }
-  .card .permalink{
-    position:absolute; top:9px; left:10px; color:var(--line); font-size:1rem;
-    text-decoration:none; opacity:0.55; line-height:1;
-  }
-  .card .permalink:hover{ opacity:1; color:var(--sage); }
   .card .drag-handle:hover{ opacity:1; color:var(--sage); }
 
   /* ---------- Rating legend ---------- */
@@ -703,9 +700,8 @@ function renderList(){
   }
 
   listView.innerHTML = visible.map(s => `
-    <div class="card" data-id="${s.id}" ${dragEnabled ? 'draggable="true"' : ''}>
+    <div class="card" data-id="${s.id}" ${dragEnabled ? 'draggable="true"' : ''} title="Open this spot's page">
       <div class="tape"></div>
-      <a class="permalink" href="spot.html?id=${encodeURIComponent(s.id)}" title="Open this spot's page">↗</a>
       ${MANAGE_MODE ? `${dragEnabled ? '<span class="drag-handle" title="Drag to reorder">⠿</span>' : ''}
       <button class="edit" data-id="${s.id}" title="Edit">✎</button>
       <button class="del" data-id="${s.id}" title="Remove">✕</button>` : ''}
@@ -721,6 +717,12 @@ function renderList(){
   });
   listView.querySelectorAll('.edit').forEach(btn=>{
     btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+  });
+  listView.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if(e.target.closest('.edit, .del, .drag-handle, .website-link')) return;
+      window.location.href = 'spot.html?id=' + encodeURIComponent(card.dataset.id);
+    });
   });
 
   if(dragEnabled){
@@ -787,7 +789,7 @@ function renderMap(){
       ${renderBeans(s.rating, 14)}
       <div class="popup-notes">${escapeHtml(s.notes || '')}</div>
       ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">🔗 Visit website</a>` : ''}
-      <a class="website-link" href="spot.html?id=${encodeURIComponent(s.id)}" style="display:block; margin-top:4px;">📄 View spot page</a>
+      <a class="website-link" href="spot.html?id=${encodeURIComponent(s.id)}" style="display:block; margin-top:4px;">View spot page →</a>
     `);
     marker.addTo(markerLayer);
   });
