@@ -18,6 +18,8 @@ create table if not exists spots (
 -- makes sure the columns are there without wiping anything out.
 alter table spots add column if not exists sort_order int;
 alter table spots add column if not exists website text;
+alter table spots add column if not exists my_order text;
+alter table spots add column if not exists something_extra text;
 
 -- Turn on row-level security, then explicitly allow the public (anon) key
 -- used by the website to read, add, and remove rows. See the setup note

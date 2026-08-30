@@ -205,6 +205,10 @@
     font-size:0.92rem; line-height:1.45; color:var(--ink); margin:0;
     white-space:pre-wrap;
   }
+  .extra-line{
+    font-size:0.85rem; line-height:1.4; color:var(--ink); margin:6px 0 0;
+  }
+  .extra-line b{ color:var(--espresso); }
   .website-link{
     display:inline-block; margin-top:8px; font-size:0.85rem; font-weight:600;
     color:var(--brick); text-decoration:none; border-bottom:1px solid var(--brick);
@@ -420,6 +424,12 @@
 
     <label>Notes</label>
     <textarea id="fNotes" placeholder="what makes it good, what to order..."></textarea>
+
+    <label>My order (optional)</label>
+    <input type="text" id="fMyOrder" placeholder="e.g. oat milk peppermint hot cocoa">
+
+    <label>Something extra (optional)</label>
+    <input type="text" id="fExtra" placeholder="e.g. ask for the seasonal special">
 
     <label>Website (optional)</label>
     <input type="text" id="fWebsite" placeholder="e.g. theircafewebsite.com">
@@ -640,6 +650,13 @@ function renderBeans(rating, size=14){
   return html + '</div>';
 }
 
+function renderExtras(s){
+  let html = '';
+  if(s.my_order) html += `<div class="extra-line"><b>My order:</b> ${escapeHtml(s.my_order)}</div>`;
+  if(s.something_extra) html += `<div class="extra-line"><b>Something extra:</b> ${escapeHtml(s.something_extra)}</div>`;
+  return html;
+}
+
 function getFilteredSpots(){
   const loc = locationSelect ? locationSelect.value : '';
   const sortMode = sortSelect ? sortSelect.value : 'rating-desc';
@@ -709,6 +726,7 @@ function renderList(){
       <div class="loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating)}
       <p class="notes">${escapeHtml(s.notes || '')}</p>
+      ${renderExtras(s)}
       ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
     </div>
   `).join('');
@@ -788,6 +806,7 @@ function renderMap(){
       <div class="popup-loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating, 14)}
       <div class="popup-notes">${escapeHtml(s.notes || '')}</div>
+      ${renderExtras(s)}
       ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
       <a class="website-link" href="spot.html?id=${encodeURIComponent(s.id)}" style="display:block; margin-top:4px;">View spot page →</a>
     `);
@@ -852,6 +871,8 @@ function openEditModal(id){
   document.getElementById('fName').value = spot.name;
   document.getElementById('fLoc').value = spot.location;
   document.getElementById('fNotes').value = spot.notes || '';
+  document.getElementById('fMyOrder').value = spot.my_order || '';
+  document.getElementById('fExtra').value = spot.something_extra || '';
   document.getElementById('fWebsite').value = spot.website || '';
   document.getElementById('fPass').value = '';
   currentRating = spot.rating || 0;
@@ -1009,6 +1030,8 @@ function resetForm(){
   document.getElementById('fName').value='';
   document.getElementById('fLoc').value='';
   document.getElementById('fNotes').value='';
+  document.getElementById('fMyOrder').value='';
+  document.getElementById('fExtra').value='';
   document.getElementById('fWebsite').value='';
   document.getElementById('fPass').value='';
   currentRating = 0; buildRateRow();
@@ -1038,6 +1061,8 @@ saveAdd.addEventListener('click', async ()=>{
   const name = document.getElementById('fName').value.trim();
   const rawLocation = document.getElementById('fLoc').value.trim();
   const notes = document.getElementById('fNotes').value.trim();
+  const myOrder = document.getElementById('fMyOrder').value.trim();
+  const extra = document.getElementById('fExtra').value.trim();
   let website = document.getElementById('fWebsite').value.trim();
   if(website && !/^https?:\/\//i.test(website)){
     website = 'https://' + website;
@@ -1072,6 +1097,8 @@ saveAdd.addEventListener('click', async ()=>{
     if(isEditing){
       const updates = {
         name, location, notes,
+        my_order: myOrder || null,
+        something_extra: extra || null,
         website: website || null,
         rating: currentRating,
         lat: pendingPin.lat,
@@ -1098,6 +1125,8 @@ saveAdd.addEventListener('click', async ()=>{
       const spot = {
         id: 'spot_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
         name, location, notes,
+        my_order: myOrder || null,
+        something_extra: extra || null,
         website: website || null,
         rating: currentRating,
         lat: pendingPin.lat,

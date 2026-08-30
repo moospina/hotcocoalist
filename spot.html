@@ -65,6 +65,10 @@
     font-size:1rem; line-height:1.6; color:var(--ink); margin:0 0 18px;
     white-space:pre-wrap;
   }
+  .extra-line{
+    font-size:0.95rem; line-height:1.5; color:var(--ink); margin:0 0 8px;
+  }
+  .extra-line b{ color:var(--espresso); }
   .website-link{
     display:inline-block; margin-bottom:18px; font-size:0.92rem; font-weight:600;
     color:var(--brick); text-decoration:none; border-bottom:1px solid var(--brick);
@@ -141,6 +145,13 @@ function renderBeans(rating){
   return html + '</div>';
 }
 
+function renderExtras(s){
+  let html = '';
+  if(s.my_order) html += `<div class="extra-line"><b>My order:</b> ${escapeHtml(s.my_order)}</div>`;
+  if(s.something_extra) html += `<div class="extra-line"><b>Something extra:</b> ${escapeHtml(s.something_extra)}</div>`;
+  return html;
+}
+
 const content = document.getElementById('content');
 
 function showMissingId(){
@@ -172,6 +183,7 @@ function renderSpot(s){
       <div class="loc">📍 ${escapeHtml(s.location)}</div>
       ${renderBeans(s.rating)}
       <p class="notes">${escapeHtml(s.notes || '')}</p>
+      ${renderExtras(s)}
       ${s.website ? `<a class="website-link" href="${escapeHtml(s.website)}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
       ${(s.lat != null && s.lng != null) ? `<div class="mini-map-frame"><div id="spotMap"></div></div>` : ''}
     </div>
