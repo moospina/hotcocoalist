@@ -368,7 +368,7 @@
       <option value="rating-desc">Sort: Highest rated</option>
       <option value="rating-asc">Sort: Lowest rated</option>
       <option value="name-asc">Sort: Name A–Z</option>
-      <option value="date-desc" selected>Sort: Newest to oldest</option>
+      <option value="date-desc">Sort: Newest to oldest</option>
       <option value="date-asc">Sort: Oldest to newest</option>
     </select>
     <select id="locationSelect">
@@ -430,6 +430,9 @@
 
     <label>Something extra (optional)</label>
     <input type="text" id="fExtra" placeholder="e.g. ask for the seasonal special">
+
+    <label>Tried (month/year) — internal, for sorting only</label>
+    <input type="month" id="fTriedDate">
 
     <label>Website (optional)</label>
     <input type="text" id="fWebsite" placeholder="e.g. theircafewebsite.com">
@@ -657,6 +660,18 @@ function renderExtras(s){
   return html;
 }
 
+// Sorting "newest/oldest" uses the month/year you actually tried the spot
+// (tried_date, e.g. "2026-03") when it's been filled in, since that's what
+// this sort is meant to reflect — not when the entry happened to be added
+// to the list. Falls back to created_at for spots without a tried_date yet.
+function sortDateValue(s){
+  if(s.tried_date){
+    const parsed = Date.parse(s.tried_date + '-01');
+    if(!isNaN(parsed)) return parsed;
+  }
+  return s.created_at || 0;
+}
+
 function getFilteredSpots(){
   const loc = locationSelect ? locationSelect.value : '';
   const sortMode = sortSelect ? sortSelect.value : 'rating-desc';
@@ -670,9 +685,9 @@ function getFilteredSpots(){
   } else if(sortMode === 'name-asc'){
     result = result.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
   } else if(sortMode === 'date-desc'){
-    result = result.slice().sort((a,b) => (b.created_at||0) - (a.created_at||0));
+    result = result.slice().sort((a,b) => sortDateValue(b) - sortDateValue(a));
   } else if(sortMode === 'date-asc'){
-    result = result.slice().sort((a,b) => (a.created_at||0) - (b.created_at||0));
+    result = result.slice().sort((a,b) => sortDateValue(a) - sortDateValue(b));
   }
   // 'default' (manage mode only) keeps the manually-arranged server order
 
@@ -873,6 +888,7 @@ function openEditModal(id){
   document.getElementById('fNotes').value = spot.notes || '';
   document.getElementById('fMyOrder').value = spot.my_order || '';
   document.getElementById('fExtra').value = spot.something_extra || '';
+  document.getElementById('fTriedDate').value = spot.tried_date || '';
   document.getElementById('fWebsite').value = spot.website || '';
   document.getElementById('fPass').value = '';
   currentRating = spot.rating || 0;
@@ -1032,6 +1048,7 @@ function resetForm(){
   document.getElementById('fNotes').value='';
   document.getElementById('fMyOrder').value='';
   document.getElementById('fExtra').value='';
+  document.getElementById('fTriedDate').value='';
   document.getElementById('fWebsite').value='';
   document.getElementById('fPass').value='';
   currentRating = 0; buildRateRow();
@@ -1063,6 +1080,7 @@ saveAdd.addEventListener('click', async ()=>{
   const notes = document.getElementById('fNotes').value.trim();
   const myOrder = document.getElementById('fMyOrder').value.trim();
   const extra = document.getElementById('fExtra').value.trim();
+  const triedDate = document.getElementById('fTriedDate').value.trim();
   let website = document.getElementById('fWebsite').value.trim();
   if(website && !/^https?:\/\//i.test(website)){
     website = 'https://' + website;
@@ -1099,6 +1117,7 @@ saveAdd.addEventListener('click', async ()=>{
         name, location, notes,
         my_order: myOrder || null,
         something_extra: extra || null,
+        tried_date: triedDate || null,
         website: website || null,
         rating: currentRating,
         lat: pendingPin.lat,
@@ -1127,6 +1146,7 @@ saveAdd.addEventListener('click', async ()=>{
         name, location, notes,
         my_order: myOrder || null,
         something_extra: extra || null,
+        tried_date: triedDate || null,
         website: website || null,
         rating: currentRating,
         lat: pendingPin.lat,
